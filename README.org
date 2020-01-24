@@ -4,11 +4,11 @@ These scripts are used to analyse global floods.
 - compute_C_over_Q look at grid cell (0.5x0.5) containing dams and divide the average annual inflow by the storage capacity of dams. This gives an indication of which dams are run-of-the-river dams and will not influence daily discharge significantly
 - compute_dam_cumulative_capacity for all grid cell, the cumulative storage capacity of dams located upstream is computed
 - compute_divide_river_network clasify every grid cell as being above, below, between or not influeced by global dams
-- compute_flood_area_basins
-- ccompute_population_exposure_0.5deg
+- compute_flood_area_basins: for 14 catchments, analyse the annual maximum flooded areas and annaul flood occurance for grid cells above, between, and below dams
+- compute_population_exposure_0.5deg: estimation of the global population exposure to global flood using the original 0.5 resolution data
 - compute_population_exposure_v2
-- compute_return_future_v2
-- compute_return_period_baseline
+- compute_return_future_v2: calculate the 100-year extreme discharge in every grid cell by fitting a gumbel distribution to extreme discharge.
+- compute_return_period_baseline: calculate the historical 100-year annual extreme discharge that is used to identify flood event
 * Downscale files
 - downscale_annual_fld_depth: Every year, for all 0.5 x 0.5 grid cell where the historicaly 100-year discharge was excceded by the annual extreme discharge, the maximum flood depth is extracted and a "map" of the maximum flood depth for the year is constructed. This file will be downscaled to 0.005 later.
 - downscale_population_exposure: using the downscaled population and flood depth files (0.005 degree), population exposure to flood is computed.
