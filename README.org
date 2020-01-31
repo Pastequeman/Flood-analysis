@@ -24,5 +24,20 @@ These scripts are used to analyse global floods.
 
 - downscale_population_file: the original global population fiel at a resolution of 15min is downscaled to 0.005 degree.
 
-* Other files
-- none
+* Local script
+These scripts are used on a personal computer to analyse datasets and generate graphs and tables.
+** population
+- ssp_exposure: Generate time-series of population exposure to river flood. This uses the original 0.5x0.5 degree resolution file and ssp2 population
+
+- population_exposure_ts: Generate time-series of population exposure to river flood. This uses the original 0.5x0.5 degree resolution and 2010 year population.
+
+- downscaled_population_exposure: Generate time-series of population exposure to river flood. This uses the downscaled 0.005x0.005 degree resolution file and 2010 population.
+
+** downscale
+- allocate-country: This file is used to associate each 0.005x0.005 grid-cell with a country.
+
+** global
+- global_rcp26_rev: create the global maps displaying the evoluation of the historical 100-year extreme discharge in the future with and without dams for rcp 2.6.
+
+- global_rcp60_rev: create the global maps displaying the evoluation of the historical 100-year extreme discharge in the future with and without dams for rcp 6.0.
+- 

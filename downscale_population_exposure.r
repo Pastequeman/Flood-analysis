@@ -1,43 +1,25 @@
 #!/usr/bin/env Rscript
 args = commandArgs(trailingOnly = TRUE)
 
-# Purpose:
+## Purpose:
 # every year > compute ave. nb of people exposed to flood
 
-# libraries
+## libraries:
 library("tibble")
 library("readr")
 suppressMessages(library("dplyr"))
 
-
 ########### start inputs
-if (length(args) != 4 ) {
-  stop("error in cmd parameters > GCM | EXP | model")
+if (length(args) != 3 ) {
+  stop("error in cmd parameters > GCM | EXP | country=yes/no")
 } else {
   GCMS     <- args[1] #"I2C_"
   EXP      <- args[2] #"nodam_trim"
-  MODEL    <- args[3] #"CAMA" # H08
   COUNTRY  <- args[4] # yes or no
 }
 
 # other inputs
 step <- 0.005
-
-###### Mask to retreive the country names
-mask <- read_csv("/data01/julien/projects/camaflood/OUT/up_middle_downstream_v2.csv",
-                 col_types = cols(lon = col_double(),
-                                  lat = col_double(),
-                                  dam = col_integer(),
-                                  nx  = col_integer(),
-                                  ny  = col_integer(),
-                                  L   = col_integer(),
-                                  jx  = col_integer(),
-                                  jy  = col_integer(),
-                                  position = col_integer(),
-                                  country  = col_factor())
-                 )
-
-
 
 ########### years
 if (GCMS == "H0C_" | GCMS == "M0C_" | GCMS == "G0C_" | GCMS == "I0C_") {
@@ -51,9 +33,9 @@ if (GCMS == "H0C_" | GCMS == "M0C_" | GCMS == "G0C_" | GCMS == "I0C_") {
 regions <- c("af1", "as1", "as2", "as3", "ca1", "eu1", "eu2",
              "eu3", "na1", "na2", "oc1", "sa1", "si1", "si2")
 
-
 ######## Main job
 for (region in regions) {
+
   # Regions specific
   if (region == "af1") {           # region1
     xdef <- 11000   ; ydef <- 14000
@@ -98,6 +80,13 @@ for (region in regions) {
     xdef <- 19000     ; ydef <- 5000
     xstart <- 100.000 ; ystart <- 75.000
   }
+
+  if (COUNTRY == "yes") {
+    # Open the country file
+    c_file <- file(paste0("/data01/julien/projects/camaflood/DAT/population/", region, "_0.005deg.bin"), open = "rb")
+    country <- readBin(con = c_file, what = "integer", n = xdef*ydef, size = 4, endian = "little")
+    close(c_file) ; rm(c_file)
+  }
   
   # Open the relevant population file
   pop_file <- file(paste0("/data01/julien/projects/camaflood/OUT/", region, "_pop_0.005deg.bin"), open = "rb")
@@ -109,19 +98,9 @@ for (region in regions) {
   pos <- readBin(pos_file, what = "integer", n = xdef*ydef, endian = "little")
   close(pos_file) ; rm(pos_file)
 
-  
-  if (COUNTRY == "yes") {
-    # Open the country file
-    country_file <- file(paste0("/data01/julien/projects/camaflood/OUT/", region, "_country_code_0.005deg.bin"), open = "rb")
-    country      <- readBin(country_file, what = "integer", size = 4, n = xdef*ydef, endian = "little")
-    close(country_file) ; rm(country_file)
-    country <- levels(mask$country)[country]
-  }
-
-  
   for (years in seq(YEAR_STA, YEAR_END)) {
     
-    # downscaled water file
+    # Downscaled water file
     file_water <- file(paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/fld_", region, "_", years, ".flood"), open = "rb")
     temp <- readBin(con = file_water, what = "numeric", n = xdef*ydef, size = 4, endian = "little")
     close(file_water) ; rm(file_water)
