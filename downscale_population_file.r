@@ -19,7 +19,7 @@ population <- scan("/data01/julien/projects/camaflood/DAT/population/gpw_v4_popu
 
 pop <- tibble(L = seq(1, 720*1440),
               lon = rep(seq(from = -179.875, by = 0.25, length.out = 1440), times = 720),
-              lat = rep(seq(from = -89.875,  by = 0.25, length.out = 720), each  = 1440),
+              lat = rep(seq(from = 89.875,  by = -0.25, length.out = 720), each  = 1440),
               dat = population)
 
 
@@ -93,7 +93,7 @@ for (region in regions) {
   }
   print(region)
 
-  # check that the region dows not loop around
+  # check that the region does not loop around
   if ((xstart + 0.005 * xdef) > 180) {
     # If correctly done, the size of the frame should be equal to: xdef*ydef/(50*50)
     original_seq <- seq(xstart, by = 0.25, length.out = xdef/50)
@@ -114,9 +114,6 @@ for (region in regions) {
     pos_v2 <- pos %>% filter(lon >= xstart & lon <= (xstart + 0.005 * xdef), lat <= ystart & lat >= (ystart - 0.005 * ydef))    
   }
   
-
-  
-  
   pop_band <- lapply(pop_v2$dat, function(x) {if (x == -9999) {rep(-9999, times = 50)} else {rep(x/(50*50), times = 50)}})
   pos_band <- lapply(pos_v2$dat, function(x) {if (is.na(x))   {rep(NA, times = 50)}    else {rep(x, times = 50)}})
   pos_cc   <- lapply(pos_v2$cc, function(x) {if (is.na(x))   {rep(NA, times = 50)}    else {rep(x, times = 50)}})
@@ -133,7 +130,10 @@ for (region in regions) {
   final_data <- apply(b_matrix,  2, function(x) rep(x, each = 50))
   final_pos  <- apply(pos_matrix,2, function(x) rep(x, each = 50))
   final_cc   <- apply(cc_matrix, 2, function(x) rep(x, each = 50))
-
+  #  Check!
+  print(sum(pop_v2$dat[pop_v2$dat != -9999])/1e6)
+  print(sum(final_data[final_data != -9999])/1e6)
+  
   cc <- as.vector(final_cc)
   # c_v2 <- levels(pos_v2$cc)[cc] I can use this directly to retreive th county same
   to_write <- file(paste0("/data01/julien/projects/camaflood/OUT/", region, "_country_code_0.005deg.bin"), open = "wb")

@@ -15,7 +15,7 @@ if (length(args) != 3 ) {
 } else {
   GCMS     <- args[1] #"I2C_"
   EXP      <- args[2] #"nodam_trim"
-  COUNTRY  <- args[4] # yes or no
+  COUNTRY  <- args[3] # yes or no
 }
 
 # other inputs
@@ -83,9 +83,10 @@ for (region in regions) {
 
   if (COUNTRY == "yes") {
     # Open the country file
-    c_file <- file(paste0("/data01/julien/projects/camaflood/DAT/population/", region, "_0.005deg.bin"), open = "rb")
-    country <- readBin(con = c_file, what = "integer", n = xdef*ydef, size = 4, endian = "little")
-    close(c_file) ; rm(c_file)
+    country <- 0 
+    #c_file <- file(paste0("/data01/julien/projects/camaflood/DAT/", region, "_0.005deg.bin"), open = "rb") # eplace OUT > DAT
+    #country <- readBin(con = c_file, what = "integer", n = xdef*ydef, size = 4, endian = "little")
+    #close(c_file) ; rm(c_file)
   }
   
   # Open the relevant population file
@@ -113,10 +114,10 @@ for (region in regions) {
                   exposure = ex)
     
     # Summarise > country
-    country_ex        <- sum %>% filter(exposure != -9999) %>%
-      group_by(country) %>% summarise(tot_ex = sum(exposure, na.rm = TRUE))
-    country_ex$year   <- years
-    country_ex$region <- region
+#    country_ex        <- sum %>% filter(exposure != -9999) %>%
+#      group_by(country) %>% summarise(tot_ex = sum(exposure, na.rm = TRUE))
+#    country_ex$year   <- years
+#    country_ex$region <- region
 
     # Summarise > position 
     position_ex        <- sum %>% filter(exposure != -9999) %>%
@@ -125,15 +126,15 @@ for (region in regions) {
     position_ex$region <- region
     
     if (years == YEAR_STA & region == "af1") {
-      exposure_country  <- country_ex
+#      exposure_country  <- country_ex
       exposure_position <- position_ex
     } else {
-      exposure_country  <- rbind(exposure_country,  country_ex)
+#      exposure_country  <- rbind(exposure_country,  country_ex)
       exposure_position <- rbind(exposure_position, position_ex)
     }
 
   } # year loop
 }
 # Write the final file
-write_csv(exposure_country,  paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/country_exposure.csv"))
+#write_csv(exposure_country,  paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/country_exposure.csv"))
 write_csv(exposure_position, paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/position_exposure.csv"))  

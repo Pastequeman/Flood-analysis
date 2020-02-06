@@ -13,12 +13,12 @@ library("raster")
 library("spData")
 
 ## shapefile of the country of the world
-country <- st_read("Inputs/country/Countries_WGS84.shp")
+country <- st_read("./Documents/shared_scripts/Countries_WGS84.shp")
 #st_geometry_type(country)
 #st_bbox(country)
 
 ## can be simplify to lower memory requirement
-country_simp <- rmapshaper::ms_simplify(country, keep = 0.01, keep_shapes = TRUE)
+#country_simp <- rmapshaper::ms_simplify(country, keep = 0.01, keep_shapes = TRUE)
 
 
 ## for all country downscale to 0.05 degree resolution
@@ -55,14 +55,16 @@ for (i in 1:nrow(country)) {
                                                      country_name = as.character(id$CNTRY_NAME)))
   }
 }
-write_csv(countries_boxes, "Outputs/country_specs_v2.csv")
-
+#write_csv(countries_boxes, "Outputs/country_specs_v2.csv")
+countries_boxes <- read.csv("./Documents/shared_scripts/country_specs_v2.csv")
 
 # After getting the spec file, 
 # the 14 region can be arranged
 
-regions <- c("as1", "as2", "as3", "ca1", "eu1", "eu2",  # "af1", 
+regions <- c( "eu1", "eu2",  # "af1",  "as1", "as2", "as3", "ca1",
              "eu3", "na1", "na2", "oc1", "sa1", "si1") # , "si2"
+
+regions <- c("af1", "as1", "as2", "as3", "ca1")
 
 for (region in regions) {
   # Regions specific
@@ -115,16 +117,39 @@ for (region in regions) {
   matrix_region <- matrix(0, ydef, xdef)
   #z <- raster_region
  
-  # counry that are withing the boundaryb
-  detected_countries <-
-  countries_boxes[((countries_boxes$lon_min >= xstart & countries_boxes$lon_min <= (xstart+0.005*xdef) | 
-                   (countries_boxes$lon_max >= xstart & countries_boxes$lon_max <= (xstart+0.005*xdef))) & 
-                  ((countries_boxes$lat_min >= (ystart-0.005*ydef) & countries_boxes$lat_min <= ystart) | 
-                  (countries_boxes$lat_max >= (ystart-0.005*ydef) & countries_boxes$lat_max <= ystart))),]
+  # counry that are withing the boundary
   
-  for (i in detected_countries$country_name) {
-    print(i) 
+  if ((xstart+0.005*xdef) > 180) {
+    extra <- (xstart+0.005*xdef) - 180
+    # either the country clip with the bounding box or it so large that it include it
+    detected_countries <-
+      countries_boxes[((countries_boxes$lon_min >= xstart & countries_boxes$lon_min <= 180 | 
+                       (countries_boxes$lon_min >= -180 & countries_boxes$lon_min <= (-180+extra)) |
+                       (countries_boxes$lon_max <= 180 & countries_boxes$lon_max >= (180-extra)) |
+                       (countries_boxes$lon_max >= xstart & countries_boxes$lon_max <= 180) |
+                       (countries_boxes$lon_min <= xstart & countries_boxes$lon_max >= 180)) & 
+                      ((countries_boxes$lat_min <= (ystart-0.005*ydef) & countries_boxes$lat_max >= ystart) | 
+                       (countries_boxes$lat_min >= (ystart-0.005*ydef) & countries_boxes$lat_min <= ystart) |  
+                       (countries_boxes$lat_max >= (ystart-0.005*ydef) & countries_boxes$lat_max <= ystart))),]
     
+  } else {
+    detected_countries <-
+      countries_boxes[((countries_boxes$lon_min >= xstart & countries_boxes$lon_min <= (xstart+0.005*xdef) | 
+                       (countries_boxes$lon_max >= xstart & countries_boxes$lon_max <= (xstart+0.005*xdef)) | 
+                       (countries_boxes$lon_min <= xstart & countries_boxes$lon_max >= (xstart+0.005*xdef))) & 
+                      ((countries_boxes$lat_min <= (ystart-0.005*ydef) & countries_boxes$lat_max >= ystart) |
+                       (countries_boxes$lat_min >= (ystart-0.005*ydef) & countries_boxes$lat_min <= ystart) | 
+                       (countries_boxes$lat_max >= (ystart-0.005*ydef) & countries_boxes$lat_max <= ystart))),]
+  }
+  
+  
+
+  for (i in detected_countries$country_name) {
+    print(i)
+    if (i == "Fiji") {
+      next
+    }
+
     # extract cells within the region + 
     id <- country[country$CNTRY_NAME == i, ]
     raster_template = raster(extent(id), resolution = 0.005,
@@ -132,30 +157,69 @@ for (region in regions) {
     ch_raster1 <- rasterize(id, raster_template , field = 1)
     ch_raster1[ch_raster1 == 1] <- id$OBJECTID
    
-    # recreate the country delim within the country
-    if (bbox(ch_raster1)[1, 1] < xstart) {
-      # what is the position of the first grid cell within the region
-      l <- seq(extent(id)[1], by = 0.005, length.out = dim(ch_raster1)[2])
-      start_at <- which(near(l, xstart, tol = 0.005) == TRUE)[1]
-      main_mat <- 1
+    
+    ### recreate the country delim within the country
+    ## carefull for large country that may wrap around
+    if ((xstart+0.005*xdef) > 180) {
+      # 1 left
+      if (bbox(ch_raster1)[1, 1] < xstart) {
+        # the country box is lower that the start box AND the region loop around
+        l <- seq(extent(id)[1], by = 0.005, length.out = dim(ch_raster1)[2])
+        start_at <- which(near(l, xstart, tol = 0.005) == TRUE)[2]
+        start_at2 <- which(near(l, -180, tol = 0.005) == TRUE)[2]
+        main_mat  <- 1
+        l <- seq(xstart, by = 0.005, length.out = xdef)
+        main_mat2 <- which(near(l, 180, tol = 0.0050) == TRUE)[2]
+        
+      } else {
+        # the country box start in the region BUT the region loop around
+        start_at <- 1
+        l <- seq(xstart, by = 0.005, length.out = xdef)
+        main_mat <- which(near(l, bbox(ch_raster1)[1, 1], tol = 0.0050) == TRUE)[2]
+      }
+    
+    # 2 right
+      if (bbox(ch_raster1)[1, 2] >= 180) {
+        # the country box is equal to the region box AND the region loop around
+        l <- seq(extent(id)[1], by = 0.005, length.out = dim(ch_raster1)[2])
+        end_at  <- which(near(l, 180, tol = 0.005) == TRUE)[1]
+        end_at2 <- which(near(l, (-180+extra), tol = 0.005) == TRUE)[1]
+        l <- seq(xstart, by = 0.005, length.out = xdef)
+        main_to <- which(near(l, 180, tol = 0.0050) == TRUE)[1]
+        main_to2 <- which(near(l, (xstart+0.005*xdef), tol = 0.0050) == TRUE)[1]
+      } else {
+        end_at <- dim(ch_raster1)[2]
+        l <- seq(xstart, by = 0.005, length.out = xdef)
+        main_to <- which(near(l, bbox(ch_raster1)[1, 2], tol = 0.005) == TRUE)[1]
+      }
+     
+ 
     } else {
-      start_at <- 1
-      l <- seq(xstart, by = 0.005, length.out = xdef)
-      main_mat <- which(near(l, bbox(ch_raster1)[1, 1], tol = 0.0050) == TRUE)[1]
+      # 1: left
+      if (bbox(ch_raster1)[1, 1] < xstart) {
+        l <- seq(extent(id)[1], by = 0.005, length.out = dim(ch_raster1)[2])
+        start_at <- which(near(l, xstart, tol = 0.005) == TRUE)[2]
+        main_mat <- 1
+      } else {
+        start_at <- 1
+        l <- seq(xstart, by = 0.005, length.out = xdef)
+        main_mat <- which(near(l, bbox(ch_raster1)[1, 1], tol = 0.0050) == TRUE)[1]
+      }
+      # 2: right
+      if (bbox(ch_raster1)[1, 2] > (xstart+0.005*xdef)) {
+        l <- seq(extent(id)[1], by = 0.005, length.out = dim(ch_raster1)[2])
+        end_at <- which(near(l, (xstart+0.005*xdef), tol = 0.005) == TRUE)[1]
+        main_to <- xdef
+      } else {
+        end_at <- dim(ch_raster1)[2]
+        l <- seq(xstart, by = 0.005, length.out = xdef)
+        main_to <- which(near(l, bbox(ch_raster1)[1, 2], tol = 0.005) == TRUE)[1]
+      } 
+      
+  
     }
     
-    # 2
-    if (bbox(ch_raster1)[1, 2] > (xstart+0.005*xdef)) {
-      l <- seq(extent(id)[1], by = 0.005, length.out = dim(ch_raster1)[2])
-      end_at <- which(near(l, (xstart+0.005*xdef), tol = 0.005) == TRUE)[1]
-      main_to <- xdef
-    } else {
-      end_at <- dim(ch_raster1)[2]
-      l <- seq(xstart, by = 0.005, length.out = xdef)
-      main_to <- which(near(l, bbox(ch_raster1)[1, 2], tol = 0.005) == TRUE)[1]
-    }
-    
-     # 3
+     # 3: bottom
     if (bbox(ch_raster1)[2, 1] < (ystart-0.005*ydef)) {
       l <- seq(extent(id)[4], by = -.005, length.out = dim(ch_raster1)[1])
       row_dwn <- which(near(l, (ystart-0.005*ydef), tol = 0.005) == TRUE)[1]
@@ -165,10 +229,10 @@ for (region in regions) {
       l <- seq(ystart, by = -0.005, length.out = ydef)
       main_dwn <- which(near(l, bbox(ch_raster1)[2, 1], tol = 0.005) == TRUE)[1]
     }
-    # 4
+    # 4: top
     if (bbox(ch_raster1)[2, 2] > ystart) {
       l <- seq(extent(id)[4], by = -.005, length.out = dim(ch_raster1)[1])
-      row_up <- which(near(l, (ystart), tol = 0.005) == TRUE)[1]
+      row_up <- which(near(l, (ystart), tol = 0.005) == TRUE)[2]
       main_up <- 1
     } else {
       row_up <- 1
@@ -186,11 +250,15 @@ for (region in regions) {
     matrix_region[main_up:(main_up+(row_dwn - row_up)), main_mat:(main_mat+(end_at - start_at))] <- 
       ifelse(!is.na(temp),temp , matrix_region)
     
-    
+    # second substitution if region wrap arround
+    if ((xstart+0.005*xdef) > 180 & bbox(ch_raster1)[1, 1] < xstart) {
+      temp
+      matrix_region
+    }
     
   }
   
-  file_out <- file(paste0("Outputs/downscaled_countries/", region, "_0.005deg.bin"), open = "wb")
+  file_out <- file(paste0("./", region, "_0.005deg.bin"), open = "wb")
   writeBin(object = as.integer(as.vector(matrix_region)), con = file_out, size = 4, endian = "little")
   close(file_out)
 }

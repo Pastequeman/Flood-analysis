@@ -68,7 +68,18 @@ mask <- read_csv("/data01/julien/projects/camaflood/OUT/up_middle_downstream.csv
 # remove the sea, not need to use the black listed
 mask <- mask %>% filter(is.na(position) != TRUE)
 
+# Koppen Geiger
+koppen <- read_table2("/data01/julien/projects/camaflood/OUT/Koeppen-Geiger-ASCII.txt",
+                      col_types = cols(Lat = col_double(),
+                                       Lon = col_double(),
+                                       Cls = col_character()))
+# fix artifact in the dataset
+koppen$Cls[koppen$Lat == 20.75 & koppen$Lon == 17.25] <- "BWh"
+# remove "BWh" and "EF"
+# add L
 
+mask <- mask %>% left_join(koppen, by = c("lon" = "Lon","lat" =  "Lat"))
+mask$y30 <- baseline$return_30
 
 for (years in seq(YEAR_STA, YEAR_END, 1)) {
   File_in <- file(description = paste("/data01/julien/models/camaflood/out/global_", GCMS, EXP, "/outflw", years , ".bin", sep = ""), open = "rb")
@@ -83,14 +94,16 @@ for (years in seq(YEAR_STA, YEAR_END, 1)) {
   }
   close(File_in)
 
-  # compare to baseline and count nb of excedence
+  # Compare to baseline and count nb of excedence
   nb_flood <- sapply(1:ncol(yearly_matrix), function(i) {sum(yearly_matrix[,i] >= baseline$return_100[i])})
   mask$fld <- nb_flood
   mask$yn <- ifelse(mask$fld > 0, 1, 0)
 
-  temp <- mask %>% group_by(position, yn) %>%
-                   summarise(n = n(),
-                             m = sum(fld, na.rm = TRUE))
+  # filter koppen region + very low flow
+  temp <- mask %>% filter(!(Cls %in% c("BWk", "BWh", "EF") & y30 <= 5)) %>%
+    group_by(position, yn) %>%
+    summarise(n = n(),
+             m = sum(fld, na.rm = TRUE))
   temp$year <- years ; temp$gcm <- GCMS ; temp$exp <- EXP
   if (years == YEAR_STA) {
     out <- temp

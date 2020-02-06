@@ -108,20 +108,20 @@ count <- 1
 for (years in seq(YEAR_STA, YEAR_END, 1)) {
   #print(years)
 
-  # discharge file to open 
+  # Discharge file to open 
   File_in1 <- file(description = paste("/data01/julien/models/camaflood/out/global_", GCMS, EXP, "/outflw", years , ".bin", sep = ""), open = "rb")
-  # floodplain depth
+  # Floodplain depth
   File_in2 <- file(description = paste("/data01/julien/models/camaflood/out/global_", GCMS, EXP, "/flddph", years , ".bin", sep = ""), open = "rb")
 
   d <- seq(as.Date(paste(years, "/1/1", sep = "")), as.Date(paste(years, "/12/31", sep= "")), "day")
   yearly_flw <- matrix(data = 0, nrow = length(d), ncol = nrow(mask))
   yearly_fld <- matrix(data = 0, nrow = length(d), ncol = nrow(mask))
   for (nb_days in 1:length(d)) {
-    t  <- readBin(con = File_in1, what = "numeric", n = 259200, size = 4, endian = "little")
+    t <- readBin(con = File_in1, what = "numeric", n = 259200, size = 4, endian = "little")
     t <- ifelse(t == t[1], NA, t)
     yearly_flw[nb_days,] <- t[mask$L]
 
-    t  <- readBin(con = File_in2, what = "numeric", n = 259200, size = 4, endian = "little")
+    t <- readBin(con = File_in2, what = "numeric", n = 259200, size = 4, endian = "little")
     t <- ifelse(t == t[1], NA, t)
     yearly_fld[nb_days,] <- t[mask$L]
   }
