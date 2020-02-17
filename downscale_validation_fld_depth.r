@@ -50,7 +50,7 @@ for (years in seq(YEAR_STA, YEAR_END, 1)) {
   annual_max_fldd <- apply(yearly_fld, 2, function(x) max(x, na.rm = TRUE))
   
   File_out <- file(paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/verification_max_fldh_", years, ".bin"), open = "wb")
-  t  <- writeBin(temp$depth, con = File_out, size = 4, endian = "little")
+  t  <- writeBin(annual_max_fldd, con = File_out, size = 4, endian = "little")
   close(File_out)
   
 }

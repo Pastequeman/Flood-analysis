@@ -73,35 +73,35 @@ if (GCMS == "M2C_" | GCMS == "M3C_" | GCMS == "M0C_") {
 }
 
 ## reference files
-reference <- read.csv(paste0("/data01/julien/projects/camaflood/OUT/global_", GCM_base, "nodam_trim/global_reference_return_outflw_Lmoment_gumbel_max_v1.csv"))
-#file_1_max <- file(paste("/data01/julien/projects/camaflood/OUT/global_", GCM_base,
-#                         "nodam_trim/global_gev_para1_outflw_Lmoment_max_v1.bin", sep = ""), open = "rb")
-#file_2_max <- file(paste("/data01/julien/projects/camaflood/OUT/global_", GCM_base,
-#                         "nodam_trim/global_gev_para2_outflw_Lmoment_max_v1.bin", sep = ""), open = "rb")
+#reference <- read.csv(paste0("/data01/julien/projects/camaflood/OUT/global_", GCM_base, "nodam_trim/global_reference_return_outflw_Lmoment_gumbel_max_v1.csv"))
+file_1_max <- file(paste("/data01/julien/projects/camaflood/OUT/global_", GCM_base,
+                         "nodam_trim/global_gev_para1_outflw_Lmoment_max_v1.bin", sep = ""), open = "rb")
+file_2_max <- file(paste("/data01/julien/projects/camaflood/OUT/global_", GCM_base,
+                         "nodam_trim/global_gev_para2_outflw_Lmoment_max_v1.bin", sep = ""), open = "rb")
 
-#file_1_qua <- file(paste("/data01/julien/projects/camaflood/OUT/global_", GCM_base,
-#                         "nodam_trim/global_gev_para1_outflw_Lmoment_quantile_v1.bin", sep = ""), open = "rb")
-#file_2_qua <- file(paste("/data01/julien/projects/camaflood/OUT/global_", GCM_base,
-#                         "nodam_trim/global_gev_para2_outflw_Lmoment_quantile_v1.bin", sep = ""), open = "rb")
+file_1_qua <- file(paste("/data01/julien/projects/camaflood/OUT/global_", GCM_base,
+                         "nodam_trim/global_gev_para1_outflw_Lmoment_quantile_v1.bin", sep = ""), open = "rb")
+file_2_qua <- file(paste("/data01/julien/projects/camaflood/OUT/global_", GCM_base,
+                         "nodam_trim/global_gev_para2_outflw_Lmoment_quantile_v1.bin", sep = ""), open = "rb")
 
-#reference_matrix_max <- matrix(data = 0, nrow = 100, ncol = nrow(mask))
-#reference_matrix_qua <- matrix(data = 0, nrow = 100, ncol = nrow(mask))
+reference_matrix_max <- matrix(data = 0, nrow = 100, ncol = nrow(mask))
+reference_matrix_qua <- matrix(data = 0, nrow = 100, ncol = nrow(mask))
 
 # get all parameters
-#for (i in 1:100) {
-#  para_1_max <- readBin(file_1_max, what = "numeric", n = nrow(mask), endian = "little")
-#  para_2_max <- readBin(file_2_max, what = "numeric", n = nrow(mask), endian = "little")
-#  reference_matrix_max[i, ] <- ifelse(is.finite(para_2_max - para_1_max * log(-log(1 - 1/100))), ifelse(para_2_max - para_1_max * log(-log(1 - 1/100)) > 0, para_2_max - para_1_max * log(-log(1 - 1/100)), 0), 0)
+for (i in 1:100) {
+  para_1_max <- readBin(file_1_max, what = "numeric", n = nrow(mask), endian = "little")
+  para_2_max <- readBin(file_2_max, what = "numeric", n = nrow(mask), endian = "little")
+  reference_matrix_max[i, ] <- ifelse(is.finite(para_2_max - para_1_max * log(-log(1 - 1/100))), ifelse(para_2_max - para_1_max * log(-log(1 - 1/100)) > 0, para_2_max - para_1_max * log(-log(1 - 1/100)), 0), 0)
   
-#  para_1_qua <- readBin(file_1_qua, what = "numeric", n = nrow(mask), endian = "little")
-#  para_2_qua <- readBin(file_2_qua, what = "numeric", n = nrow(mask), endian = "little")
-#  reference_matrix_qua[i, ] <- ifelse(is.finite(para_2_qua - para_1_qua * log(-log(1 - 1/100))), ifelse(para_2_qua - para_1_qua * log(-log(1 - 1/100)) > 0, para_2_qua - para_1_qua * log(-log(1 - 1/100)), 0), 0)
-#}
+  para_1_qua <- readBin(file_1_qua, what = "numeric", n = nrow(mask), endian = "little")
+  para_2_qua <- readBin(file_2_qua, what = "numeric", n = nrow(mask), endian = "little")
+  reference_matrix_qua[i, ] <- ifelse(is.finite(para_2_qua - para_1_qua * log(-log(1 - 1/100))), ifelse(para_2_qua - para_1_qua * log(-log(1 - 1/100)) > 0, para_2_qua - para_1_qua * log(-log(1 - 1/100)), 0), 0)
+}
 
 # close and clean
-#close(file_1_max) ; close(file_2_max)  ; close(file_1_qua) ; close(file_2_qua)
-#rm(file_1_max) ; rm(file_2_max) ; rm(file_1_qua) ; rm(file_2_qua) ;
-#rm(i) ; rm(para_1_max) ; rm(para_1_qua) ; rm(para_2_max) ; rm(para_2_qua)
+close(file_1_max) ; close(file_2_max)  ; close(file_1_qua) ; close(file_2_qua)
+rm(file_1_max) ; rm(file_2_max) ; rm(file_1_qua) ; rm(file_2_qua) ;
+rm(i) ; rm(para_1_max) ; rm(para_1_qua) ; rm(para_2_max) ; rm(para_2_qua)
 
 
 count <- 1
@@ -129,25 +129,26 @@ for (years in seq(YEAR_STA, YEAR_END, 1)) {
 
   # flood indices
   y1 <- apply(yearly_flw, 2, function(x) max(x, na.rm = TRUE))
-  #y2 <- apply(yearly_flw, 2, function(x) quantile(x, 0.95, na.rm = TRUE, type = 8))
+  y2 <- apply(yearly_flw, 2, function(x) quantile(x, 0.95, na.rm = TRUE, type = 8))
 
-  #potential_flood_max <- matrix(0, nrow = 100, ncol = nrow(mask))
-  #potential_flood_qua <- matrix(0, nrow = 100, ncol = nrow(mask))
+  potential_flood_max <- matrix(0, nrow = 100, ncol = nrow(mask))
+  potential_flood_qua <- matrix(0, nrow = 100, ncol = nrow(mask))
 
-  #for (i in 1:100) {
-  #  potential_flood_max[i, ] <- as.numeric(y1 > reference_matrix_max[i, ])
-  #  potential_flood_qua[i, ] <- as.numeric(y2 > reference_matrix_qua[i, ])
-  #}
+  for (i in 1:100) {
+    potential_flood_max[i, ] <- as.numeric(y1 > reference_matrix_max[i, ])
+    potential_flood_qua[i, ] <- as.numeric(y2 > reference_matrix_qua[i, ])
+  }
 
   # I know where flood occured
   # for these grid cell take the floodplain depth
   # 0 elsewhere
-  #overall_nb_flood <- apply(potential_flood_max, 2, function(x) sum(x, na.rm = TRUE))
-
+  overall_nb_flood_v1 <- apply(potential_flood_max, 2, function(x) sum(x, na.rm = TRUE))
+  overall_nb_flood_v2 <- apply(potential_flood_qua, 2, function(x) sum(x, na.rm = TRUE))
   # max water elev
   annual_max_fldd <- apply(yearly_fld, 2, function(x) max(x, na.rm = TRUE)) # here I do not remove a certain quantile since this is water depth
 
-  flooded_depth <- ifelse(y1 >= reference$return_100, annual_max_fldd, 0)
+  #flooded_depth <- ifelse(y1 >= reference$return_100, annual_max_fldd, 0)
+  flooded_depth <- ifelse((overall_nb_flood_v1 + overall_nb_flood_v2)/2 >= 50, annual_max_fldd, 0)
   mask$depth <- flooded_depth
   a <- mask %>% select(L, lon, lat, depth)
   temp <- data.frame(L   = seq(from = 1, to = 360*720, 1),
@@ -162,5 +163,3 @@ for (years in seq(YEAR_STA, YEAR_END, 1)) {
   close(File_out)
   
 }
-
-

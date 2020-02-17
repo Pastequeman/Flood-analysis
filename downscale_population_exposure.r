@@ -83,17 +83,70 @@ for (region in regions) {
 
   if (COUNTRY == "yes") {
     # Open the country file
-    country <- 0 
-    #c_file <- file(paste0("/data01/julien/projects/camaflood/DAT/", region, "_0.005deg.bin"), open = "rb") # eplace OUT > DAT
-    #country <- readBin(con = c_file, what = "integer", n = xdef*ydef, size = 4, endian = "little")
-    #close(c_file) ; rm(c_file)
+    c_file <- file(paste0("/data01/julien/projects/camaflood/DAT/country/", region, "_0.005deg.bin"), open = "rb") # eplace OUT > DAT
+    country <- readBin(con = c_file, what = "integer", n = xdef*ydef, size = 4, endian = "little")
+    close(c_file) ; rm(c_file)
   }
   
   # Open the relevant population file
-  pop_file <- file(paste0("/data01/julien/projects/camaflood/OUT/", region, "_pop_0.005deg.bin"), open = "rb")
-  pop <- readBin(pop_file, what = "numeric", n = xdef*ydef, endian = "little")
-  close(pop_file) ; rm(pop_file)
+  #pop_file <- file(paste0("/data01/julien/projects/camaflood/OUT/", region, "_pop_0.005deg.bin"), open = "rb")
+  #pop <- readBin(pop_file, what = "numeric", n = xdef*ydef, endian = "little")
+  #close(pop_file) ; rm(pop_file)
 
+    # check which of the initial 8 regions are concerned
+  initial_reg <- tibble(reg = seq(1, 8),
+                        lon = rep(c(-180, -90, 0, 90), times = 2),
+                        lat = rep(c(90, 0), each = 4),
+                        inc = 0)
+  if (region != "si2") {
+    for (i in 1:8) {
+      initial_reg$inc[i] <- ifelse((sum(seq(xstart, by = 0.005, length.out = xdef) %in% seq(initial_reg$lon[i], by = 0.005, length.out = 18000)) > 0) & (sum(seq(ystart, by = -0.005, length.out = ydef) %in% seq(initial_reg$lat[i], by = -0.005, length.out = 18000)) >0 ), 1, 0)    
+    }
+  } else {
+    for (i in 1:8) {
+      initial_reg$inc[i] <- ifelse((sum(c(seq(xstart, 180, by = 0.005), seq(-180, -165, by = 0.005)) %in% seq(initial_reg$lon[i], by = 0.005, length.out = 18000)) > 0) & (sum(seq(ystart, by = -0.005, length.out = ydef) %in% seq(initial_reg$lat[i], by = -0.005, length.out = 18000)) >0 ), 1, 0)    
+    }    
+  }
+  #print(initial_reg)
+  #} ## DEBUG
+  # get the population
+  for (i in initial_reg[initial_reg$inc == 1,]$reg) {
+    population <- scan(paste0("/data01/julien/projects/camaflood/DAT/population/interpolated_reg_", i, ".asc"), quiet = TRUE)
+    pop <- data.frame(lon = rep(seq((initial_reg[initial_reg$reg == i,]$lon + 0.0025), by = 0.005, length.out = 18000), times = 18000),
+                      lat = rep(seq((initial_reg[initial_reg$reg == i,]$lat - 0.0025), by = -0.005, length.out = 18000), each = 18000),
+                      dat = population )
+    if (region != "si2") {
+      population_v2 <- pop %>% filter(lon > xstart & lon < (xstart+0.005*xdef), lat < ystart & lat > (ystart-0.005*ydef))      
+    } else {
+      if (i == 1) {
+        population_v2 <- pop %>% filter(lon > -180 & lon < -165, lat < ystart & lat > (ystart-0.005*ydef))        
+      } else {
+        population_v2 <- pop %>% filter(lon > xstart & lon < 180, lat < ystart & lat > (ystart-0.005*ydef))
+      }
+    }
+
+
+    if (initial_reg[initial_reg$inc == 1,]$reg[1] == i) {
+      population_v3 <- population_v2
+      rm(population) ; rm(pop)
+    } else {
+      population_v3 <- rbind(population_v3, population_v2)
+      rm(population) ; rm(pop)
+    }  
+  }
+  rm(population_v2)
+  #  if (region != "si2") {
+  #print(dim(population_v3)) ; print(xdef*ydef) ## DEBUG
+  population_v3 <- population_v3 %>% arrange(desc(lat), lon)
+#  } else {
+    
+#  }
+
+#  tib_tes <- tibble(lon = rep(seq((xstart+0.0025), by = 0.005, length.out = xdef), times = ydef),
+#                    lat = rep(seq((ystart-0.0025), by = -0.005, length.out = ydef), each = xdef))
+
+#  tib_tes <- tib_tes %>% left_join(population_v3, by = c("lon", "lat"))
+  
   # Open the position file
   pos_file <- file(paste0("/data01/julien/projects/camaflood/OUT/", region, "_position_0.005deg.bin"), open = "rb")
   pos <- readBin(pos_file, what = "integer", n = xdef*ydef, endian = "little")
@@ -107,34 +160,35 @@ for (region in regions) {
     close(file_water) ; rm(file_water)
     
     # inference
-    ex <- ifelse(temp > 0, pop, 0)
+    ex <- ifelse(temp > 0, population_v3$dat, 0)
 
     sum <- tibble(position = pos,
                   country = country,
                   exposure = ex)
     
     # Summarise > country
-#    country_ex        <- sum %>% filter(exposure != -9999) %>%
-#      group_by(country) %>% summarise(tot_ex = sum(exposure, na.rm = TRUE))
-#    country_ex$year   <- years
-#    country_ex$region <- region
+    country_ex        <- sum %>% filter(exposure != -9999) %>%
+      group_by(country) %>% summarise(tot_ex = sum(exposure, na.rm = TRUE))
+    country_ex$year   <- years
+    country_ex$region <- region
 
     # Summarise > position 
     position_ex        <- sum %>% filter(exposure != -9999) %>%
       group_by(position) %>% summarise(tot_ex = sum(exposure, na.rm = TRUE))
     position_ex$year   <- years
     position_ex$region <- region
-    
+    #print(sum(position_ex$tot_ex)/1e6) ## DEBUG
+
     if (years == YEAR_STA & region == "af1") {
-#      exposure_country  <- country_ex
+      exposure_country  <- country_ex
       exposure_position <- position_ex
     } else {
-#      exposure_country  <- rbind(exposure_country,  country_ex)
+      exposure_country  <- rbind(exposure_country,  country_ex)
       exposure_position <- rbind(exposure_position, position_ex)
     }
 
   } # year loop
 }
 # Write the final file
-#write_csv(exposure_country,  paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/country_exposure.csv"))
+write_csv(exposure_country,  paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/country_exposure.csv"))
 write_csv(exposure_position, paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/position_exposure.csv"))  

@@ -14,8 +14,7 @@ suppressMessages(library("dplyr"))
 regions <- c("af1", "as1", "as2", "as3", "ca1", "eu1", "eu2",
              "eu3", "na1", "na2", "oc1", "sa1", "si1", "si2")
 
-population <- scan("/data01/julien/projects/camaflood/DAT/population/gpw_v4_population_count_rev11_2010_15_min_cleaned.asc",
-                   quiet = TRUE)
+population <- scan("/data01/julien/projects/camaflood/DAT/population/gpw_v4_population_count_rev11_2010_15_min_cleaned.asc", quiet = TRUE)
 
 pop <- tibble(L = seq(1, 720*1440),
               lon = rep(seq(from = -179.875, by = 0.25, length.out = 1440), times = 720),
@@ -113,7 +112,7 @@ for (region in regions) {
     pop_v2 <- pop %>% filter(lon >= xstart & lon <= (xstart + 0.005 * xdef), lat <= ystart & lat >= (ystart - 0.005 * ydef))
     pos_v2 <- pos %>% filter(lon >= xstart & lon <= (xstart + 0.005 * xdef), lat <= ystart & lat >= (ystart - 0.005 * ydef))    
   }
-  
+
   pop_band <- lapply(pop_v2$dat, function(x) {if (x == -9999) {rep(-9999, times = 50)} else {rep(x/(50*50), times = 50)}})
   pos_band <- lapply(pos_v2$dat, function(x) {if (is.na(x))   {rep(NA, times = 50)}    else {rep(x, times = 50)}})
   pos_cc   <- lapply(pos_v2$cc, function(x) {if (is.na(x))   {rep(NA, times = 50)}    else {rep(x, times = 50)}})
@@ -127,24 +126,23 @@ for (region in regions) {
   pos_matrix <- matrix(data = pos_bands, ncol = xdef, nrow = ydef/50, byrow = TRUE)
   cc_matrix  <- matrix(data = cc_bands, ncol = xdef, nrow = ydef/50, byrow = TRUE)
   
-  final_data <- apply(b_matrix,  2, function(x) rep(x, each = 50))
-  final_pos  <- apply(pos_matrix,2, function(x) rep(x, each = 50))
-  final_cc   <- apply(cc_matrix, 2, function(x) rep(x, each = 50))
+  final_data <- b_matrix[rep(1:nrow(b_matrix), each = 50), ]
+  final_pos  <- pos_matrix[rep(1:nrow(pos_matrix), each = 50), ]
+  final_cc   <- cc_matrix[rep(1:nrow(cc_matrix), each = 50), ]
   #  Check!
   print(sum(pop_v2$dat[pop_v2$dat != -9999])/1e6)
   print(sum(final_data[final_data != -9999])/1e6)
   
-  cc <- as.vector(final_cc)
   # c_v2 <- levels(pos_v2$cc)[cc] I can use this directly to retreive th county same
   to_write <- file(paste0("/data01/julien/projects/camaflood/OUT/", region, "_country_code_0.005deg.bin"), open = "wb")
-  writeBin(cc, to_write, size = 4, endian = "little")
+  writeBin(as.vector(t(final_cc)), to_write, size = 4, endian = "little")
   close(to_write)
   
   to_write <- file(description = paste0("/data01/julien/projects/camaflood/OUT/", region, "_pop_0.005deg.bin"), open = "wb")
-  writeBin(as.vector(final_data), to_write, endian = "little")
+  writeBin(as.vector(t(final_data)), to_write, endian = "little")
   close(to_write)
 
   to_write <- file(description = paste0("/data01/julien/projects/camaflood/OUT/", region, "_position_0.005deg.bin"), open = "wb")
-  writeBin(as.vector(final_pos), to_write, endian = "little")
+  writeBin(as.vector(t(final_pos)), to_write, endian = "little")
   close(to_write)
 }
