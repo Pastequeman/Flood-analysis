@@ -25,7 +25,7 @@ cor <- tibble(lon = c(30.25, -90.25, 90.25, 100.75),
 if (GCMS %in% c("H2C_", "G2C_", "M2C_", "I2C_",
                 "H3C_", "G3C_", "M3C_", "I3C_")) {
   YEAR_STA <- 2006
-  YEAR_END <- 2099
+  YEAR_END <- 2036
 } else {
   YEAR_STA <- 1861
   YEAR_END <- 2005
@@ -86,7 +86,7 @@ for (years in seq(YEAR_STA, YEAR_END, 1)) {
     xstart <- 110.000 ; ystart <- -10.000
   } else if (region == "sa1") {    # region 12
     xdef <- 11000    ; ydef <- 15000
-    start <- -85.000 ; ystart <- 15.000
+    xstart <- -85.000 ; ystart <- 15.000
   } else if (region == "si1") {    # region 13
     xdef <- 12000    ; ydef <- 7000
     xstart <- 55.000 ; ystart <- 80.000
@@ -109,7 +109,7 @@ for (years in seq(YEAR_STA, YEAR_END, 1)) {
                        lat >= (cor$lat[i]-0.25) & lat <= (cor$lat[i]+0.25))
     a$dat <- ifelse(a$dat == -9999, NA, a$dat)
     # flooded fraction approximatly:
-    ave_flood$frc[i] <-  sum(!is.na(a$dat) & a$dat != 0)/10000
+    ave_flood$frc[i] <-  sum(!is.na(a$dat) & a$dat != 0)/sum(!is.na(a$dat))
   }
   out <- tibble(region = rep(regions ,2), frc = c(max_frc, ave_flood$frc), scale = rep(c(0.5, 0.005), each = 4))
   # save?

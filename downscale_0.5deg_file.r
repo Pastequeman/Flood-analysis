@@ -2,7 +2,8 @@
 args = commandArgs(trailingOnly = TRUE)
 
 ## purpose: do manually the downscaling
-# from 15 min (0.25 degree) to 0.005 degree
+# from 0.5 degree ro 0.005 degree
+# downscaled file include: basin, position, country and original L coordinate
 
 ## libraries
 library("tibble")
@@ -13,14 +14,6 @@ suppressMessages(library("dplyr"))
 #region <- args[1] # "af1" ...
 regions <- c("af1", "as1", "as2", "as3", "ca1", "eu1", "eu2",
              "eu3", "na1", "na2", "oc1", "sa1", "si1", "si2")
-
-population <- scan("/data01/julien/projects/camaflood/DAT/population/gpw_v4_population_count_rev11_2010_15_min_cleaned.asc", quiet = TRUE)
-
-pop <- tibble(L = seq(1, 720*1440),
-              lon = rep(seq(from = -179.875, by = 0.25, length.out = 1440), times = 720),
-              lat = rep(seq(from = 89.875,  by = -0.25, length.out = 720), each  = 1440),
-              dat = population)
-
 
 mask <- read_csv("/data01/julien/projects/camaflood/OUT/up_middle_downstream_v2.csv",
                  col_types = cols(lon = col_double(),
@@ -34,16 +27,24 @@ mask <- read_csv("/data01/julien/projects/camaflood/OUT/up_middle_downstream_v2.
                                   position = col_integer(),
                                   country = col_factor())
                  )
+# new ! added basins!
+ff <- file("/data01/julien/models/camaflood/map/global_30min/basin.bin", open = "rb")
+bas <- readBin(ff, what = "integer", n = 360*720, size = 4, endian = "little")
+close(ff)
+
+mask$basin <- bas
+rm(bas) ; rm(ff)
 
 # Original mask for the position of cells
 pos <- tibble(L = seq(1, 360*720),
               lon = rep(seq(from = -179.75, by = 0.5, length.out = 720), times = 360),
               lat = rep(seq(from = 89.75,  by = -0.5, length.out = 360), each  = 720),
               dat = mask$position,
-              cc  = mask$country)
+              cc  = mask$country,
+              bas = mask$basin)
 
 # Clean
-rm(population) ; rm(mask)
+rm(mask)
 
 for (region in regions) {
 # Regions specific
@@ -82,7 +83,7 @@ for (region in regions) {
     xstart <- 110.000 ; ystart <- -10.000
   } else if (region == "sa1") {    # region 12
     xdef <- 11000    ; ydef <- 15000
-    start <- -85.000 ; ystart <- 15.000
+    xstart <- -85.000 ; ystart <- 15.000
   } else if (region == "si1") {    # region 13
     xdef <- 12000    ; ydef <- 7000
     xstart <- 55.000 ; ystart <- 80.000
@@ -94,55 +95,48 @@ for (region in regions) {
 
   # check that the region does not loop around
   if ((xstart + 0.005 * xdef) > 180) {
-    # If correctly done, the size of the frame should be equal to: xdef*ydef/(50*50)
-    original_seq <- seq(xstart, by = 0.25, length.out = xdef/50)
-    new_lim <- original_seq[length(original_seq)] - 180
-
-    pop_v2 <- tibble(lon = rep(c(seq((xstart-0.25/2), 180, 0.25), seq(-179.875, by = 0.25, length.out = new_lim/0.25)), times = 5000/50),
-                     lat = rep(seq((ystart-0.25/2), by = -0.25, length.out = ydef/50), each = xdef/50))
-    pop_v2 <- pop_v2 %>% left_join(pop, by = c("lon", "lat"))
-
-    pos_v2 <- tibble(lon = rep(c(seq((xstart+0.5/2), to = 180, by = 0.5),
-                                 seq(-179.75, by = 0.50, length.out = new_lim/0.50)), times = ydef/100),
-                     lat = rep(seq((ystart-0.5/2), by = -0.5, length.out = ydef/100), each = xdef/100))
-    pos_v2 <- pos_v2 %>% left_join(pos, by = c("lon", "lat"))
-    
+    pos_v2 <- pos %>% filter(lon >= xstart & lon <= 180, lat <= ystart & lat >= (ystart - 0.005 * ydef))
+    # add second sequence
+    temp <- pos %>% filter(lon >= -180 & lon <= -165, lat <= ystart & lat >= (ystart - 0.005 * ydef))
+    pos_v2 <- rbind(pos_v2, temp)
   } else {
-    # Relevant population data
-    pop_v2 <- pop %>% filter(lon >= xstart & lon <= (xstart + 0.005 * xdef), lat <= ystart & lat >= (ystart - 0.005 * ydef))
     pos_v2 <- pos %>% filter(lon >= xstart & lon <= (xstart + 0.005 * xdef), lat <= ystart & lat >= (ystart - 0.005 * ydef))    
   }
 
-  pop_band <- lapply(pop_v2$dat, function(x) {if (x == -9999) {rep(-9999, times = 50)} else {rep(x/(50*50), times = 50)}})
-  pos_band <- lapply(pos_v2$dat, function(x) {if (is.na(x))   {rep(NA, times = 50)}    else {rep(x, times = 50)}})
-  pos_cc   <- lapply(pos_v2$cc, function(x) {if (is.na(x))   {rep(NA, times = 50)}    else {rep(x, times = 50)}})
-  
-  pop_bands <- unlist(pop_band)
-  pos_bands <- unlist(pos_band)
-  cc_bands  <- unlist(pos_cc, use.names = TRUE)
+#  pop_band <- lapply(pop_v2$dat, function(x) {if (x == -9999) {rep(-9999, times = 50)} else {rep(x/(50*50), times = 50)}})
+  pos_band  <- lapply(pos_v2$dat, function(x) {if (is.na(x))   {rep(NA, times = 100)}   else {rep(x, times = 100)}})
+  pos_cc    <- lapply(pos_v2$cc, function(x) {if (is.na(x))    {rep(NA, times = 100)}   else {rep(x, times = 100)}})
+  pos_bas   <- lapply(pos_v2$bas, function(x) {if (is.na(x))   {rep(NA, times = 100)}   else {rep(x, times = 100)}})
+  pos_l     <- lapply(pos_v2$L, function(x) {if (is.na(x))     {rep(NA, times = 100)}   else {rep(x, times = 100)}})
 
-  # check that population count matches > OK
-  b_matrix   <- matrix(data = pop_bands, ncol = xdef, nrow = ydef/50, byrow = TRUE)
-  pos_matrix <- matrix(data = pos_bands, ncol = xdef, nrow = ydef/50, byrow = TRUE)
-  cc_matrix  <- matrix(data = cc_bands, ncol = xdef, nrow = ydef/50, byrow = TRUE)
+  pos_bands   <- unlist(pos_band)
+  cc_bands    <- unlist(pos_cc, use.names = TRUE)
+  basin_bands <- unlist(pos_bas, use.names = TRUE)
+  l_bands     <- unlist(pos_l, use.names = TRUE)
+
+  pos_matrix  <- matrix(data = pos_bands, ncol = xdef, nrow = ydef/100, byrow = TRUE)
+  cc_matrix   <- matrix(data = cc_bands, ncol = xdef, nrow = ydef/100, byrow = TRUE)
+  bas_matrix  <- matrix(data = basin_bands, ncol = xdef, nrow = ydef/100, byrow = TRUE)
+  l_matrix    <- matrix(data = l_bands, ncol = xdef, nrow = ydef/100, byrow = TRUE)
+
+  final_pos <- pos_matrix[rep(1:nrow(pos_matrix), each = 100), ]
+  final_cc  <- cc_matrix[rep(1:nrow(cc_matrix), each = 100), ]
+  final_bas <- bas_matrix[rep(1:nrow(bas_matrix), each = 100), ]
+  final_l   <- l_matrix[rep(1:nrow(l_matrix), each = 100), ]
   
-  final_data <- b_matrix[rep(1:nrow(b_matrix), each = 50), ]
-  final_pos  <- pos_matrix[rep(1:nrow(pos_matrix), each = 50), ]
-  final_cc   <- cc_matrix[rep(1:nrow(cc_matrix), each = 50), ]
-  #  Check!
-  print(sum(pop_v2$dat[pop_v2$dat != -9999])/1e6)
-  print(sum(final_data[final_data != -9999])/1e6)
-  
-  # c_v2 <- levels(pos_v2$cc)[cc] I can use this directly to retreive th county same
   to_write <- file(paste0("/data01/julien/projects/camaflood/OUT/", region, "_country_code_0.005deg.bin"), open = "wb")
   writeBin(as.vector(t(final_cc)), to_write, size = 4, endian = "little")
-  close(to_write)
-  
-  to_write <- file(description = paste0("/data01/julien/projects/camaflood/OUT/", region, "_pop_0.005deg.bin"), open = "wb")
-  writeBin(as.vector(t(final_data)), to_write, endian = "little")
   close(to_write)
 
   to_write <- file(description = paste0("/data01/julien/projects/camaflood/OUT/", region, "_position_0.005deg.bin"), open = "wb")
   writeBin(as.vector(t(final_pos)), to_write, endian = "little")
   close(to_write)
+
+  to_write <- file(description = paste0("/data01/julien/projects/camaflood/OUT/", region, "_basins_0.005deg.bin"), open = "wb")
+  writeBin(as.vector(t(final_bas)), to_write, endian = "little")
+  close(to_write)
+
+  to_write <- file(description = paste0("/data01/julien/projects/camaflood/OUT/", region, "_L_0.005deg.bin"), open = "wb")
+  writeBin(as.vector(t(final_l)), to_write, endian = "little")
+  close(to_write)  
 }

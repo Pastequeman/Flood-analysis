@@ -8,7 +8,7 @@ args = commandArgs(trailingOnly = TRUE)
 library("tibble")
 library("readr")
 suppressMessages(library("dplyr"))
-
+library("ncdf4")
 ########### start inputs
 if (length(args) != 3 ) {
   stop("error in cmd parameters > GCM | EXP | country=yes/no")
@@ -72,7 +72,7 @@ for (region in regions) {
     xstart <- 110.000 ; ystart <- -10.000
   } else if (region == "sa1") {    # region 12
     xdef <- 11000    ; ydef <- 15000
-    start <- -85.000 ; ystart <- 15.000
+    xstart <- -85.000 ; ystart <- 15.000
   } else if (region == "si1") {    # region 13
     xdef <- 12000    ; ydef <- 7000
     xstart <- 55.000 ; ystart <- 80.000
@@ -87,13 +87,7 @@ for (region in regions) {
     country <- readBin(con = c_file, what = "integer", n = xdef*ydef, size = 4, endian = "little")
     close(c_file) ; rm(c_file)
   }
-  
-  # Open the relevant population file
-  #pop_file <- file(paste0("/data01/julien/projects/camaflood/OUT/", region, "_pop_0.005deg.bin"), open = "rb")
-  #pop <- readBin(pop_file, what = "numeric", n = xdef*ydef, endian = "little")
-  #close(pop_file) ; rm(pop_file)
-
-    # check which of the initial 8 regions are concerned
+  # check which of the initial 8 regions are concerned
   initial_reg <- tibble(reg = seq(1, 8),
                         lon = rep(c(-180, -90, 0, 90), times = 2),
                         lat = rep(c(90, 0), each = 4),
@@ -111,10 +105,13 @@ for (region in regions) {
   #} ## DEBUG
   # get the population
   for (i in initial_reg[initial_reg$inc == 1,]$reg) {
-    population <- scan(paste0("/data01/julien/projects/camaflood/DAT/population/interpolated_reg_", i, ".asc"), quiet = TRUE)
+    nc_data <- nc_open(paste0("/data01/julien/projects/camaflood/DAT/population/inter_", i,".nc"))
+    population <- ncvar_get(nc_data, "var1")
+    nc_close(nc_data)
+    #population <- scan(paste0("/data01/julien/projects/camaflood/DAT/population/interpolated_reg_", i, ".asc"), quiet = TRUE)
     pop <- data.frame(lon = rep(seq((initial_reg[initial_reg$reg == i,]$lon + 0.0025), by = 0.005, length.out = 18000), times = 18000),
                       lat = rep(seq((initial_reg[initial_reg$reg == i,]$lat - 0.0025), by = -0.005, length.out = 18000), each = 18000),
-                      dat = population )
+                      dat = as.vector(t(population)) )
     if (region != "si2") {
       population_v2 <- pop %>% filter(lon > xstart & lon < (xstart+0.005*xdef), lat < ystart & lat > (ystart-0.005*ydef))      
     } else {
