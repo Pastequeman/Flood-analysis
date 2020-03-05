@@ -12,12 +12,12 @@ library("readr")
 suppressMessages(library("dplyr"))
 
 ## read commanf line inputs
-if (length(args) != 2) {
-  stop("Required: GCM ; indice")
+if (length(args) != 3) {
+  stop("Required 3: GCM ; experiment; indice")
 } else {
   GCMS      <- args[1] #"G2C_"
   EXP       <- args[2] # "nodam_trim"
-
+  IND       <- args[3] # max or quantile
 }
 
 
@@ -30,11 +30,6 @@ if (GCMS %in% c("H2C_", "G2C_", "M2C_", "I2C_",
   YEAR_STA <- 1861
   YEAR_END <- 2005
 }
-
-
-########## start inputs
-
-
 
 ########### mask
 mask <- read_csv("/data01/julien/projects/camaflood/OUT/up_middle_downstream.csv",
@@ -73,7 +68,6 @@ if (GCMS == "M2C_" | GCMS == "M3C_" | GCMS == "M0C_") {
 }
 
 ## reference files
-#reference <- read.csv(paste0("/data01/julien/projects/camaflood/OUT/global_", GCM_base, "nodam_trim/global_reference_return_outflw_Lmoment_gumbel_max_v1.csv"))
 file_1_max <- file(paste("/data01/julien/projects/camaflood/OUT/global_", GCM_base,
                          "nodam_trim/global_gev_para1_outflw_Lmoment_max_v1.bin", sep = ""), open = "rb")
 file_2_max <- file(paste("/data01/julien/projects/camaflood/OUT/global_", GCM_base,
@@ -107,7 +101,6 @@ rm(i) ; rm(para_1_max) ; rm(para_1_qua) ; rm(para_2_max) ; rm(para_2_qua)
 count <- 1
 for (years in seq(YEAR_STA, YEAR_END, 1)) {
   #print(years)
-
   # Discharge file to open 
   File_in1 <- file(description = paste("/data01/julien/models/camaflood/out/global_", GCMS, EXP, "/outflw", years , ".bin", sep = ""), open = "rb")
   # Floodplain depth
@@ -135,8 +128,8 @@ for (years in seq(YEAR_STA, YEAR_END, 1)) {
   potential_flood_qua <- matrix(0, nrow = 100, ncol = nrow(mask))
 
   for (i in 1:100) {
-    potential_flood_max[i, ] <- as.numeric(y1 > reference_matrix_max[i, ])
-    potential_flood_qua[i, ] <- as.numeric(y2 > reference_matrix_qua[i, ])
+    potential_flood_max[i, ] <- as.numeric(y1 >= reference_matrix_max[i, ])
+    potential_flood_qua[i, ] <- as.numeric(y2 >= reference_matrix_qua[i, ])
   }
 
   # I know where flood occured
@@ -146,9 +139,12 @@ for (years in seq(YEAR_STA, YEAR_END, 1)) {
   overall_nb_flood_v2 <- apply(potential_flood_qua, 2, function(x) sum(x, na.rm = TRUE))
   # max water elev
   annual_max_fldd <- apply(yearly_fld, 2, function(x) max(x, na.rm = TRUE)) # here I do not remove a certain quantile since this is water depth
+  if (IND == "max") {
+    flooded_depth <- ifelse(overall_nb_flood_v1 >= 25, annual_max_fldd, 0)    
+  } else {
+    flooded_depth <- ifelse(overall_nb_flood_v2 >= 25, annual_max_fldd, 0)
+  }
 
-  #flooded_depth <- ifelse(y1 >= reference$return_100, annual_max_fldd, 0)
-  flooded_depth <- ifelse((overall_nb_flood_v1 + overall_nb_flood_v2)/2 >= 50, annual_max_fldd, 0)
   mask$depth <- flooded_depth
   a <- mask %>% select(L, lon, lat, depth)
   temp <- data.frame(L   = seq(from = 1, to = 360*720, 1),
@@ -158,7 +154,7 @@ for (years in seq(YEAR_STA, YEAR_END, 1)) {
   temp <- temp %>% left_join(a, by = c("L", "lon", "lat"))
   temp$depth <- ifelse(is.na(temp$depth), -9999, temp$depth)
   ## 3) write to file the final map
-  File_out <- file(paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/to_downscale_", years, ".bin"), open = "wb")
+  File_out <- file(paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/to_downscale_", IND, "_", years, ".bin"), open = "wb")
   t  <- writeBin(temp$depth, con = File_out, size = 4, endian = "little")
   close(File_out)
   

@@ -11,7 +11,7 @@ suppressMessages(library("dplyr"))
 library("ncdf4")
 ########### start inputs
 if (length(args) != 3 ) {
-  stop("error in cmd parameters > GCM | EXP | country=yes/no")
+  stop("error in cmd parameters > GCM=H2C/G2C_... | EXP=dam_trim/nodam_trim | country=yes/no")
 } else {
   GCMS     <- args[1] #"I2C_"
   EXP      <- args[2] #"nodam_trim"
@@ -20,6 +20,15 @@ if (length(args) != 3 ) {
 
 # other inputs
 step <- 0.005
+
+## clean
+if (file.exists(paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/country_exposure.csv"))) {
+  file.remove(paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/country_exposure.csv"))
+}
+if (COUNTRY == "yes") {
+  if (file.exists(paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/position_exposure.csv"))) {
+    file.remove(paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/position_exposure.csv"))}
+}
 
 ########### years
 if (GCMS == "H0C_" | GCMS == "M0C_" | GCMS == "G0C_" | GCMS == "I0C_") {
@@ -111,7 +120,7 @@ for (region in regions) {
     #population <- scan(paste0("/data01/julien/projects/camaflood/DAT/population/interpolated_reg_", i, ".asc"), quiet = TRUE)
     pop <- data.frame(lon = rep(seq((initial_reg[initial_reg$reg == i,]$lon + 0.0025), by = 0.005, length.out = 18000), times = 18000),
                       lat = rep(seq((initial_reg[initial_reg$reg == i,]$lat - 0.0025), by = -0.005, length.out = 18000), each = 18000),
-                      dat = as.vector(t(population)) )
+                      dat = as.vector(population) )# no need to transpose here!
     if (region != "si2") {
       population_v2 <- pop %>% filter(lon > xstart & lon < (xstart+0.005*xdef), lat < ystart & lat > (ystart-0.005*ydef))      
     } else {
@@ -129,20 +138,13 @@ for (region in regions) {
     } else {
       population_v3 <- rbind(population_v3, population_v2)
       rm(population) ; rm(pop)
-    }  
+    }
   }
   rm(population_v2)
   #  if (region != "si2") {
   #print(dim(population_v3)) ; print(xdef*ydef) ## DEBUG
   population_v3 <- population_v3 %>% arrange(desc(lat), lon)
-#  } else {
-    
-#  }
 
-#  tib_tes <- tibble(lon = rep(seq((xstart+0.0025), by = 0.005, length.out = xdef), times = ydef),
-#                    lat = rep(seq((ystart-0.0025), by = -0.005, length.out = ydef), each = xdef))
-
-#  tib_tes <- tib_tes %>% left_join(population_v3, by = c("lon", "lat"))
   
   # Open the position file
   pos_file <- file(paste0("/data01/julien/projects/camaflood/OUT/", region, "_position_0.005deg.bin"), open = "rb")
@@ -168,7 +170,7 @@ for (region in regions) {
       group_by(country) %>% summarise(tot_ex = sum(exposure, na.rm = TRUE))
     country_ex$year   <- years
     country_ex$region <- region
-
+    #print(region)
     # Summarise > position 
     position_ex        <- sum %>% filter(exposure != -9999) %>%
       group_by(position) %>% summarise(tot_ex = sum(exposure, na.rm = TRUE))
@@ -176,7 +178,7 @@ for (region in regions) {
     position_ex$region <- region
     #print(sum(position_ex$tot_ex)/1e6) ## DEBUG
 
-    if (years == YEAR_STA & region == "af1") {
+    if (years == YEAR_STA) {
       exposure_country  <- country_ex
       exposure_position <- position_ex
     } else {
@@ -185,7 +187,12 @@ for (region in regions) {
     }
 
   } # year loop
+  if (file.exists(paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/country_exposure.csv"))) {
+    write_csv(exposure_country,  paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/country_exposure.csv"), append = TRUE)
+    write_csv(exposure_position, paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/position_exposure.csv"), append = TRUE)      
+  } else {
+    write_csv(exposure_country,  paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/country_exposure.csv"))
+    write_csv(exposure_position, paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/position_exposure.csv"))  
+  }
 }
 # Write the final file
-write_csv(exposure_country,  paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/country_exposure.csv"))
-write_csv(exposure_position, paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/position_exposure.csv"))  

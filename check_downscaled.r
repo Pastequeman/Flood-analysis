@@ -9,7 +9,7 @@ suppressMessages(library("dplyr"))
 
 ## read commanf line inputs
 if (length(args) != 2) {
-  stop("Required: GCM ; indice")
+  stop("Required: GCM ; experiment")
 } else {
   GCMS      <- args[1] #"G2C_"
   EXP       <- args[2] # "nodam_trim"
@@ -20,7 +20,19 @@ cells <- c(84661, 85860, 95581, 110002) # 0.5 resolution original cells
 cor <- tibble(lon = c(30.25, -90.25, 90.25, 100.75),
               lat = c(31.25, 30.25, 23.75, 13.75))
 
+# grid reference
+aa <- tibble(L = seq(1:(720*360)), nx = rep(seq(1:720), times = 360), ny = rep(seq(1:360), each = 720))
+reference <- aa[aa$L %in% cells,]
 
+#ref_f <- file(paste0("/data01/julien/models/camaflood/map/global_30min/inpmat-0.5deg.bin"), open = "rb")
+#reference_x <- readBin(ref_f, what = "integer", n = (360*720*27), size = 4, endian = "little") # 27 is the maximum possible overlap
+#reference_y <- readBin(ref_f, what = "integer", n = (360*720*27), size = 4, endian = "little")
+#close(ref_f) ; rm(ref_f)
+
+#reference <- tibble(cell = cells,
+#                    nx = reference_x[cells],
+#                    ny = reference_y[cells])
+#rm(reference_x) ; rm(reference_y)
 # get the time period
 if (GCMS %in% c("H2C_", "G2C_", "M2C_", "I2C_",
                 "H3C_", "G3C_", "M3C_", "I3C_")) {
@@ -97,23 +109,66 @@ for (years in seq(YEAR_STA, YEAR_END, 1)) {
     #
 
     down_f <- file(paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/fld_", region, "_", years, ".flood"), open = "rb")
-    t <- readBin(down_f, what = "numeric", size = 4, n = (11000*14000))
-    close(down_f)
-    
+    t <- readBin(down_f, what = "numeric", size = 4, n = (xdef*ydef))
+    close(down_f) ; rm(down_f)
+
+    # this is neccessary to know which sub-grid cells contribute to the original 0.5 resolution original cell
+    hires_f <- file(paste0("/data01/julien/models/camaflood/map/global_30min/hires/", region, ".catmxy"), open = "rb")
+    x_c <- readBin(hires_f, what = "integer", size = 2, n = (xdef*ydef), endian = "little")
+    y_c <- readBin(hires_f, what = "integer", size = 2, n = (xdef*ydef), endian = "little")
+    close(hires_f) ; rm(hires_f)
+
+    # the original cell
     dw <- tibble(lon = rep(seq((xstart+0.0025), by = 0.005, length.out = xdef), times = ydef),
                  lat = rep(seq((ystart-0.0025), by = -0.005, length.out = ydef), each = xdef),
-                 dat = t)
-    
+                 dat = t,
+                 x = x_c,
+                 y = y_c)
+    rm(x_c) ; rm(y_c)
     # Extract relevant info
     a <- dw %>% filter(lon >= (cor$lon[i]-0.25)  & lon <= (cor$lon[i]+0.25),
                        lat >= (cor$lat[i]-0.25) & lat <= (cor$lat[i]+0.25))
+    # now explore the 8 neighboring cells
+    for (j in seq(1, 8)) {
+      if (j == 1) {
+        x_add <- 0.5
+        y_add <- 0 
+      } else if (j == 2) {
+        x_add <- -0.5
+        y_add <- 0         
+      } else if (j == 3) {
+        x_add <- 0.5
+        y_add <- 0.5
+      } else if (j == 4) {
+        x_add <- 0.5
+        y_add <- -0.5 
+      } else if (j == 5) {
+        x_add <- 0
+        y_add <- -0.5        
+      } else if (j == 6) {
+        x_add <- 0
+        y_add <- 0.5
+      } else if (j == 7) {
+        x_add <- -0.5
+        y_add <- 0.5
+      } else {
+        x_add <- -0.5
+        y_add <- -0.5
+      }
+      extra <-
+      dw %>% filter(lon >= (cor$lon[i]-0.25+x_add)  & lon <= (cor$lon[i]+0.25+x_add),
+                    lat >= (cor$lat[i]-0.25+y_add) & lat <= (cor$lat[i]+0.25+y_add))
+      # add relevaent sub-cells
+      if (nrow(extra) > 0) {
+        a <- rbind(a, extra[extra$x == reference$nx[i] & extra$y == reference$ny[i],])        
+      }
+    } # end extra cells
     a$dat <- ifelse(a$dat == -9999, NA, a$dat)
     # flooded fraction approximatly:
-    ave_flood$frc[i] <-  sum(!is.na(a$dat) & a$dat != 0)/sum(!is.na(a$dat))
+    ave_flood$frc[i] <-  sum(!is.na(a$dat) & a$dat != 0 & a$x == reference$nx[i] & a$y == reference$ny[i]) / sum(!is.na(a$dat) & a$x == reference$nx[i] & a$y == reference$ny[i])
   }
   out <- tibble(region = rep(regions ,2), frc = c(max_frc, ave_flood$frc), scale = rep(c(0.5, 0.005), each = 4))
   # save?
   write_csv(out, paste0("/data01/julien/projects/camaflood/OUT/global_", GCMS, EXP, "/frc_check.csv"), append = TRUE)
 
 }
-
