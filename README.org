@@ -1,23 +1,23 @@
-These scripts are used to analyse global floods.
+The scripts and models described here were used in the work entitled: "Role of dams in reducing global flood exposure under climate change" by Boulange et al., (2020). First the setup to couple the H08 and CaMa-Flood models is explained. Next, scripts used for the data analysis are described. The third section contains script to downscale important datasets. The last section contains scripts used to generate figures and tables.
 * Global models setup
 ** H08
-The initial simulations using the H08 model requires the following settings:
+The initial simulations using the H08 model are performed following the method described in the H08 manual with the following caveats:
 1. The  river network needs to be identical to that of CaMa-Flood.
 2. As a result, the locations of dams need to be adjusted in accordance to CaMa-Flood river network
 3. Last, output files need to be stored as _little endian_ (this can be done after as a post process, after running the initial simulation but it is simpler to do it from the beginning)
 ** CaMa-Flood
 *** Input files
 For CaMa-Flood to consider dams, few extra inputs are necessary:
-1. Dam location: To access this file, the path is currently hardcoded into the source code and may need to be modified. The format of the file is identical to that of the H08 model but endianess (_little_) may need to be changed. The path for this file need to be difine in the following files: calc_rivout.f, calc_fldout.f
-2. Discharge: Similar to above, the path is hardcoded, the format is identical to that of H08 but endaness need to be "little". The path to discharge can be updated in the following files; calc_rivout.f, calc_fldout.f
-Note thatonly the ".F" files need to be edited, the make file first convert those to ".f90" files and then to the final binary. 
-- Important! Although not always indcated by the above mentioned flag, the OMP statements have to be edited! Here is an example:
-  - original: !$OMP THREADPRIVATE   (JSEQ, DSLOPE, DAREA, DFLW, DOUT_PRE, DFLW_PRE, DFLW_IMP)
-  - modified: !$OMP THREADPRIVATE   (JSEQ, DSLOPE, DAREA, DFLW, DOUT_PRE, DFLW_PRE, DFLW_IMP, IX, IY, IH08)
-OMP is used to speedup loop excecution, if it disable, then no edit i necessary.
+1. Dam location: To access this file, the path is currently hardcoded into the source code and may need to be modified. The format of the file is identical to that of the H08 model but endianess (_little_) may need to be changed. The path for this file needs to be define in the following files: calc_rivout.f, calc_fldout.f
+2. Discharge: Similar to above, the path to access the daily discharge produced by H08 is hardcoded, the format is identical to that of H08 but endianess need to be "little". The path to daily river discharge need to be updated in the following files: calc_rivout.f, calc_fldout.f
+Note that only the ".F" files need to be edited, the make file first convert those to ".f90" files and then to the final binary. 
+- Important! Although not always indicated by the above mentioned flag, the OMP statements have to be edited! Here is an example:
+  - Original: !$OMP THREADPRIVATE   (JSEQ, DSLOPE, DAREA, DFLW, DOUT_PRE, DFLW_PRE, DFLW_IMP)
+  - Modified: !$OMP THREADPRIVATE   (JSEQ, DSLOPE, DAREA, DFLW, DOUT_PRE, DFLW_PRE, DFLW_IMP, IX, IY, IH08)
+OMP is used to speedup loop excecution using multiple cores; if it disable, then no edit is necessary.
 
 *** Source code
-First, my edits in the original source code are always surrounded by "!! edit Julien" and "end edit julien" so by looking for those strings in the source files, it is relatively easy to identify all changes.
+First, my edits in the original source code are always surrounded by "!! edit Julien" and "end edit julien" so by looking for those strings in the source files (".F"), it is relatively easy to identify all changes.
 - Inventory of modified files:
   1. in src/ calc_damout.F, calc_fldout.F, calc_rivout.F, calc_stonxt.F, control_out.F, control_phys.F, init_cond.F
   2. in mod/ mod_input.F mod_prog.F
@@ -28,13 +28,15 @@ First, my edits in the original source code are always surrounded by "!! edit Ju
 Here I briefly describe the key edits in the majors source code files.
 1. mod_input.F: new parameter and log file definition
 2. mod_prog.F: Storage for dams
-3. calc_rivout.F: 
-4. calc_fldout.F: Read the dam location file, if there is a dam there is no flow possible from the floodplain (reset to 0)
-5. 
-6. 
-7. 
+3. init_cond.F: Initial condition for reservoir storage
+4. calc_rivout.F: Read dam locations, if a dam is present in the grid cell, discharge is swapped with that of the H08 model.
+5. calc_fldout.F: Read the dam location file, if there is a dam there is no flow possible from the floodplain (reset to 0).
+6. calc_stonxt.F: Edit to correctly compute the water balance
+7. control_phys.F: Minor change to which parameters are exported to the module. The goal here is to be able to get the day of simulation for the curent time step to open the corrct daily discharge file.
+8. calc_damout.F: not used by the model
 
-*** Variables
+*** Important variables
+I have  introduced new variables (mainly related to dam storage), but also needed to access variales defined in CaMa-Flood but not used in specific modules.
 1. D2SAVE
    - new: yes
    - Define in: mod_prog.F
@@ -71,11 +73,13 @@ Here I briefly describe the key edits in the majors source code files.
    - new: yes
    - Define in: no
    - Use in: calc_fldout.F, calc_damout.F, calc_stonxt.F, control_out.F, calc_rivout.F, calc_fldstg.F
-10. 
-11. 
+10. IT
+    - new: no
+    - Define in: control_phys.F
+    - Use in: control_phys.F, calc_rivout.F
 
 *** Possible improvements
-- read the dam location only once at the beginning
+- Read the dam location only once at the beginning of the simulation
 
 * Compute files
 - _compute_C_over_Q_: look at grid cell (0.5x0.5) containing dams and divide the average annual inflow by the storage capacity of dams. This gives an indication of which dams are run-of-the-river dams and will not influence daily discharge significantly.
