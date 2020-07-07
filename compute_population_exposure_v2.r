@@ -18,7 +18,8 @@ if (length(args) != 3 ) {
 } else {
   GCMS     <- args[1] #"I2C_"
   EXP      <- args[2] #"nodam_trim"
-  MODEL    <- args[3] #"CAMA" # H08  
+  MODEL    <- args[3] #"CAMA" # H08
+  SSP      <- args[4] # no or ssp1 ... ssp5
 }
 
 ########### mask

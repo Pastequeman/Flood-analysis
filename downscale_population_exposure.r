@@ -162,8 +162,8 @@ for (region in regions) {
     rm(population_v2)
     population_v3 <- population_v3 %>% arrange(desc(lat), lon)
     
-  } else {
-    nc_data <- nc_open(paste0("/data01/julien/projects/camaflood/DAT/population/isimip2b/", SSP, "soc/population_", region, ".nc4"))
+  } else { # ssp != no
+    nc_data <- nc_open(paste0("/data01/julien/projects/camaflood/DAT/population/isimip2b/", SSP, "soc/population_", SSP, "_", region, "_annual_2006-2100.nc4"))
   }
 
   # Open the position file
@@ -177,6 +177,7 @@ for (region in regions) {
     # read the correct year population for SSp
     if (SSP != "no") {
       population <- ncvar_get(nc_data, "number_of_people", start = c(1, 1, counter), count = c(-1, -1, 1))
+      print(c(years, region)) # DEBUG
       population_v3 <- 
       tibble(lon = rep(seq(xstart, by = step, length.out = xdef), times = ydef),
              lat = rep(seq(ystart, by = -step, length.out = ydef), each = xdef),
