@@ -111,6 +111,9 @@ I have  introduced new variables (mainly related to dam storage), but also neede
 
 - _downscale_validation_fld_depth.r_: This script systematically create a maximum flooded depth annually. These files are then typically downscaled and then run into the check_downscaled.r algorithm.
 
+* Dam assessment
+- In this folder are multiple scripts used to extract steamflow from grid cells downstream of a given dam. The streamflows are extracted twice: for the experiment with no dam implementation and once more for the xperiment with dam implementation. Then these daily streamflow are converted to monthly average streamflow and compared with observations data before and after the dam entered active operation.
+
 * Other file
 - _check_downscaled.r_: Compare the maximum flooded depth of the 0.5 resolution data with what is obtained after downscale
 
@@ -130,3 +133,4 @@ These scripts are used on a personal computer to further analyse datasets and ge
 - _global_rcp26_rev_: create the global maps displaying the evoluation of the historical 100-year extreme discharge in the future with and without dams for rcp 2.6.
 
 - _global_rcp60_rev_: create the global maps displaying the evoluation of the historical 100-year extreme discharge in the future with and without dams for rcp 6.0.
+  
